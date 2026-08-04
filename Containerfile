@@ -33,8 +33,8 @@ ARG ARCH="${ARCH:-x86_64}"
 
 ARG BASE_IMAGE="${BASE_IMAGE:-ghcr.io/ublue-os/${BASE_IMAGE_NAME}-main:${FEDORA_VERSION}}"
 ARG NVIDIA_BASE="${NVIDIA_BASE:-bazzite}"
-ARG KERNEL_REF="${KERNEL_REF:-ghcr.io/bazzite-org/kernel-bazzite:latest-f${FEDORA_VERSION}-${ARCH}}"
-ARG NVIDIA_REF="${NVIDIA_REF:-ghcr.io/bazzite-org/nvidia-drivers:latest-f${FEDORA_VERSION}-${ARCH}}"
+ARG KERNEL_REF="${KERNEL_REF:-ghcr.io/aceos-workspace/kernel-aceos:latest-f${FEDORA_VERSION}-${ARCH}}"
+ARG NVIDIA_REF="${NVIDIA_REF:-ghcr.io/aceos-workspace/akmods-aceos-nvidia-open:latest-f${FEDORA_VERSION}-${ARCH}}"
 
 FROM ${KERNEL_REF} AS kernel
 FROM ${NVIDIA_REF} AS nvidia
@@ -309,7 +309,7 @@ RUN --mount=type=cache,dst=/var/cache \
         rocm-smi && \
     mkdir -p /etc/xdg/autostart && \
     # sed -i~ -E 's/=.\$\(command -v (nft|ip6?tables-legacy).*/=/g' /usr/lib/waydroid/data/scripts/waydroid-net.sh && \
-    sed -i 's/ --xdg-runtime=\\"${XDG_RUNTIME_DIR}\\"//g' /usr/bin/btrfs-assistant-launcher && \
+    sed -i 's/ --xdg-runtime=\\"${XDG_RUNTIME_DIR}\\"//g' /usr/bin/btrfs-assistant-launcher || true && \
     /ctx/cleanup
 
 # Install Steam & Lutris, plus supporting packages
