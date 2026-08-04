@@ -12,6 +12,11 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-oneclick
   cancel-in-progress: true
@@ -21,6 +26,10 @@ jobs:
     name: Build Bazzite
     uses: ./.github/workflows/build.yml
     secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     with:
       handwritten: ${{ inputs.handwritten }}
       fresh-rechunk: ${{ inputs['fresh-rechunk'] }}
@@ -30,3 +39,7 @@ jobs:
     needs: build-images
     uses: ./.github/workflows/build_iso.yml
     secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
