@@ -912,10 +912,11 @@ RUN --mount=type=secret,id=SIGNING_KEY \
         echo "ERROR: sign-file not found at $SIGN_FILE" && exit 1 ; \
     fi && \
     \
-    EXTRA_DIR="/usr/lib/modules/${KVER}/extra" && \
-    if [[ -d "$EXTRA_DIR" ]]; then \
-        find "$EXTRA_DIR" \( -name '*.ko' -o -name '*.ko.xz' -o -name '*.ko.gz' -o -name '*.ko.zst' \) | \
-        while read -r ko; do \
+    EXTRA_DIR="/usr/lib/modules/${KVER}" && \
+    KO_LIST=$(find "$EXTRA_DIR" \( -name '*.ko' -o -name '*.ko.xz' -o -name '*.ko.gz' -o -name '*.ko.zst' \) \
+        -not -path "*/kernel/*" 2>/dev/null) && \
+    if [[ -n "$KO_LIST" ]]; then \
+        echo "$KO_LIST" | while read -r ko; do \
             ext="${ko##*.}" && \
             base="${ko%.*}" && \
             case "$ext" in \
@@ -933,7 +934,7 @@ RUN --mount=type=secret,id=SIGNING_KEY \
         done && \
         echo "out-of-tree modules signed OK" ; \
     else \
-        echo "WARNING: no extra modules directory at $EXTRA_DIR" ; \
+        echo "WARNING: no out-of-tree modules found under $EXTRA_DIR (excluding kernel/)" ; \
     fi && \
     \
     rm -f /tmp/signing.key /tmp/signing.crt

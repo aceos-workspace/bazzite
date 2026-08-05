@@ -270,6 +270,7 @@ jobs:
           # ---------- 提取 /EFI ----------
           sudo xorriso -osirrox on -indev "$ISO_PATH" \
               -extract /EFI "$WORKDIR/EFI" 2>/dev/null
+          sudo chown -R "$(id -u):$(id -g)" "$WORKDIR/EFI"
 
           # ---------- 替换 shim ----------
           SHIM_SRC="${{ github.workspace }}/installer/secure_boot/shimx64.efi"
@@ -295,6 +296,7 @@ jobs:
           # ---------- 签名 /images/pxeboot/vmlinuz ----------
           sudo xorriso -osirrox on -indev "$ISO_PATH" \
               -extract /images/pxeboot/vmlinuz "$WORKDIR/vmlinuz" 2>/dev/null
+          sudo chown "$(id -u):$(id -g)" "$WORKDIR/vmlinuz"
           sign_efi "$WORKDIR/vmlinuz"
           sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
               -map "$WORKDIR/vmlinuz" /images/pxeboot/vmlinuz \
