@@ -237,6 +237,103 @@ jobs:
 
 
 
+      - name: Sign EFI binaries for Secure Boot
+        shell: bash
+        env:
+          GRUB_SIGNING_KEY:  ${{ secrets.GRUB_SIGNING_KEY }}
+          GRUB_SIGNING_CERT: ${{ secrets.GRUB_SIGNING_CERT }}
+        run: |
+          set -xeuo pipefail
+
+          sudo apt-get install -y sbsigntool mtools
+
+          ISO_DIR=$(readlink -f "${{ steps.build.outputs.iso_path }}")
+          ISO_NAME="${{ steps.build.outputs.iso_name }}"
+          ISO_PATH="${ISO_DIR}/${ISO_NAME}"
+
+          WORKDIR=$(mktemp -d)
+          trap 'sudo rm -rf "$WORKDIR"' EXIT
+
+          # 写出子证书私钥/证书（构建完即删除）
+          echo "$GRUB_SIGNING_KEY"  > "$WORKDIR/boot.key"
+          echo "$GRUB_SIGNING_CERT" > "$WORKDIR/boot.crt"
+          chmod 600 "$WORKDIR/boot.key"
+
+          sign_efi() {
+              local f="$1"
+              sbattach --remove "$f" 2>/dev/null || true
+              sbsign --key "$WORKDIR/boot.key" --cert "$WORKDIR/boot.crt" \
+                     --output "$f" "$f"
+              sbverify --cert "$WORKDIR/boot.crt" "$f"
+          }
+
+          # ---------- 提取 /EFI ----------
+          sudo xorriso -osirrox on -indev "$ISO_PATH" \
+              -extract /EFI "$WORKDIR/EFI" 2>/dev/null
+
+          # ---------- 替换 shim ----------
+          SHIM_SRC="${{ github.workspace }}/installer/secure_boot/shimx64.efi"
+          if [[ -f "$SHIM_SRC" ]]; then
+              sudo cp "$SHIM_SRC" "$WORKDIR/EFI/BOOT/BOOTX64.EFI"
+              sudo mkdir -p "$WORKDIR/EFI/aceos"
+              sudo cp "$SHIM_SRC" "$WORKDIR/EFI/aceos/shimx64.efi"
+              # 兼容：ISO 里如果有 fedora 目录也替换
+              [[ -f "$WORKDIR/EFI/fedora/shimx64.efi" ]] && \
+                  sudo cp "$SHIM_SRC" "$WORKDIR/EFI/fedora/shimx64.efi"
+          fi
+
+          # ---------- 签名 grub ----------
+          [[ -f "$WORKDIR/EFI/aceos/grubx64.efi"  ]] && sign_efi "$WORKDIR/EFI/aceos/grubx64.efi"
+          [[ -f "$WORKDIR/EFI/fedora/grubx64.efi" ]] && sign_efi "$WORKDIR/EFI/fedora/grubx64.efi"
+          [[ -f "$WORKDIR/EFI/BOOT/grubx64.efi"   ]] && sign_efi "$WORKDIR/EFI/BOOT/grubx64.efi"
+
+          # ---------- 写回 /EFI ----------
+          sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
+              -map "$WORKDIR/EFI" /EFI \
+              -boot_image any replay -commit 2>/dev/null
+
+          # ---------- 签名 /images/pxeboot/vmlinuz ----------
+          sudo xorriso -osirrox on -indev "$ISO_PATH" \
+              -extract /images/pxeboot/vmlinuz "$WORKDIR/vmlinuz" 2>/dev/null
+          sign_efi "$WORKDIR/vmlinuz"
+          sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
+              -map "$WORKDIR/vmlinuz" /images/pxeboot/vmlinuz \
+              -boot_image any replay -commit 2>/dev/null
+
+          # ---------- 同步更新 /images/efiboot.img ----------
+          sudo xorriso -osirrox on -indev "$ISO_PATH" \
+              -extract /images/efiboot.img "$WORKDIR/efiboot.img" 2>/dev/null
+          if command -v mcopy >/dev/null 2>&1; then
+              # grub
+              if [[ -f "$WORKDIR/EFI/aceos/grubx64.efi" ]]; then
+                  mcopy -D o -i "$WORKDIR/efiboot.img" \
+                      "$WORKDIR/EFI/aceos/grubx64.efi" ::/EFI/aceos/grubx64.efi 2>/dev/null || true
+                  mcopy -D o -i "$WORKDIR/efiboot.img" \
+                      "$WORKDIR/EFI/aceos/grubx64.efi" ::/EFI/BOOT/grubx64.efi  2>/dev/null || true
+              elif [[ -f "$WORKDIR/EFI/fedora/grubx64.efi" ]]; then
+                  mcopy -D o -i "$WORKDIR/efiboot.img" \
+                      "$WORKDIR/EFI/fedora/grubx64.efi" ::/EFI/fedora/grubx64.efi 2>/dev/null || true
+                  mcopy -D o -i "$WORKDIR/efiboot.img" \
+                      "$WORKDIR/EFI/fedora/grubx64.efi" ::/EFI/BOOT/grubx64.efi   2>/dev/null || true
+              fi
+              # shim
+              if [[ -f "$SHIM_SRC" ]]; then
+                  mcopy -D o -i "$WORKDIR/efiboot.img" \
+                      "$SHIM_SRC" ::/EFI/BOOT/BOOTX64.EFI   2>/dev/null || true
+                  mcopy -D o -i "$WORKDIR/efiboot.img" \
+                      "$SHIM_SRC" ::/EFI/aceos/shimx64.efi   2>/dev/null || true
+              fi
+          fi
+          sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
+              -map "$WORKDIR/efiboot.img" /images/efiboot.img \
+              -boot_image any replay -commit 2>/dev/null
+
+          # ---------- 更新 MD5 ----------
+          sudo implantisomd5 "$ISO_PATH"
+          sudo checkisomd5 --verbose "$ISO_PATH"
+
+          rm -f "$WORKDIR/boot.key" "$WORKDIR/boot.crt"
+
       - name: Move ISOs to Upload Directory
         id: upload-directory
         shell: bash
