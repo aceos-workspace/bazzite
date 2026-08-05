@@ -882,6 +882,62 @@ RUN --mount=type=cache,dst=/var/cache \
     dnf5 -y copr disable ublue-os/staging && \
     /ctx/cleanup
 
+# Sign vmlinuz (PE) and out-of-tree kernel modules with AceOS signing key
+RUN --mount=type=secret,id=SIGNING_KEY \
+    --mount=type=secret,id=SIGNING_CERT \
+    set -euo pipefail && \
+    \
+    dnf5 -y install sbsigntools && \
+    \
+    cp /run/secrets/SIGNING_KEY /tmp/signing.key && \
+    cp /run/secrets/SIGNING_CERT /tmp/signing.crt && \
+    chmod 600 /tmp/signing.key && \
+    \
+    KVER=$(ls /usr/lib/modules/ | head -1) && \
+    echo "Kernel version: $KVER" && \
+    \
+    VMLINUZ="/usr/lib/modules/${KVER}/vmlinuz" && \
+    if [[ -f "$VMLINUZ" ]]; then \
+        sbattach --remove "$VMLINUZ" 2>/dev/null || true && \
+        sbsign --key /tmp/signing.key --cert /tmp/signing.crt \
+               --output "$VMLINUZ" "$VMLINUZ" && \
+        sbverify --cert /tmp/signing.crt "$VMLINUZ" && \
+        echo "vmlinuz signed OK: $VMLINUZ" ; \
+    else \
+        echo "WARNING: vmlinuz not found at $VMLINUZ" ; \
+    fi && \
+    \
+    SIGN_FILE="/usr/src/kernels/${KVER}/scripts/sign-file" && \
+    if [[ ! -x "$SIGN_FILE" ]]; then \
+        echo "ERROR: sign-file not found at $SIGN_FILE" && exit 1 ; \
+    fi && \
+    \
+    EXTRA_DIR="/usr/lib/modules/${KVER}/extra" && \
+    if [[ -d "$EXTRA_DIR" ]]; then \
+        find "$EXTRA_DIR" \( -name '*.ko' -o -name '*.ko.xz' -o -name '*.ko.gz' -o -name '*.ko.zst' \) | \
+        while read -r ko; do \
+            ext="${ko##*.}" && \
+            base="${ko%.*}" && \
+            case "$ext" in \
+                xz)  xz -d "$ko"; ko="$base" ;; \
+                gz)  gzip -d "$ko" ; ko="$base" ;; \
+                zst) zstd -d "$ko" --rm -o "$base" ; ko="$base" ;; \
+            esac && \
+            "$SIGN_FILE" sha256 /tmp/signing.key /tmp/signing.crt "$ko" && \
+            case "$ext" in \
+                xz)  xz -C crc32 -f "$ko" ;; \
+                gz)  gzip -9f "$ko" ;; \
+                zst) zstd -19"$ko" --rm -o "${ko}.zst" ;; \
+            esac && \
+            echo "  signed: $ko" ; \
+        done && \
+        echo "out-of-tree modules signed OK" ; \
+    else \
+        echo "WARNING: no extra modules directory at $EXTRA_DIR" ; \
+    fi && \
+    \
+    rm -f /tmp/signing.key /tmp/signing.crt
+
 # Cleanup & Finalize
 RUN --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \

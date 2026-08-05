@@ -290,12 +290,22 @@ jobs:
         id: build_image
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GRUB_SIGNING_KEY:  ${{ secrets.GRUB_SIGNING_KEY }}
+          GRUB_SIGNING_CERT: ${{ secrets.GRUB_SIGNING_CERT }}
         run: |
+          echo "$GRUB_SIGNING_KEY"> /tmp/signing.key
+          echo "$GRUB_SIGNING_CERT" > /tmp/signing.crt
+          chmod 600 /tmp/signing.key
+
           sudo -E buildah build \
             --target ${{ steps.base.outputs.container_target }} \
             --build-arg-file build_args.txt \
             --secret "id=GITHUB_TOKEN,env=GITHUB_TOKEN" \
+            --secret "id=SIGNING_KEY,src=/tmp/signing.key" \
+            --secret "id=SIGNING_CERT,src=/tmp/signing.crt" \
             --tag raw-img .
+
+          rm -f /tmp/signing.key /tmp/signing.crt
 
       # Reprocess raw-img using rechunker which will delete it
       - name: Run Rechunker
