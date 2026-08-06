@@ -914,7 +914,7 @@ RUN --mount=type=secret,id=SIGNING_KEY \
     \
     EXTRA_DIR="/usr/lib/modules/${KVER}" && \
     KO_LIST=$(find "$EXTRA_DIR" \( -name '*.ko' -o -name '*.ko.xz' -o -name '*.ko.gz' -o -name '*.ko.zst' \) \
-        -not -path "*/kernel/*" 2>/dev/null) && \
+        \( -not -path "*/kernel/*" -o -path "*/kernel/drivers/custom/*" \) 2>/dev/null) && \
     if [[ -n "$KO_LIST" ]]; then \
         echo "$KO_LIST" | while read -r ko; do \
             ext="${ko##*.}" && \
