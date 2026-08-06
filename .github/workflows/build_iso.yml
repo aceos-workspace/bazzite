@@ -341,7 +341,7 @@ jobs:
 
           # ---------- 更新 MD5 ----------
           sudo implantisomd5 "$ISO_PATH"
-          sudo checkisomd5 --verbose "$ISO_PATH"
+          sudo checkisomd5 "$ISO_PATH"
 
           rm -f "$WORKDIR/boot.key" "$WORKDIR/boot.crt"
 

@@ -300,6 +300,7 @@ jobs:
           sudo -E buildah build \
             --target ${{ steps.base.outputs.container_target }} \
             --build-arg-file build_args.txt \
+            --build-arg "SIGNING_EPOCH=$(date +%s)" \
             --secret "id=GITHUB_TOKEN,env=GITHUB_TOKEN" \
             --secret "id=SIGNING_KEY,src=/tmp/signing.key" \
             --secret "id=SIGNING_CERT,src=/tmp/signing.crt" \

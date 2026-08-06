@@ -883,6 +883,8 @@ RUN --mount=type=cache,dst=/var/cache \
     /ctx/cleanup
 
 # Sign vmlinuz (PE) and out-of-tree kernel modules with AceOS signing key
+# ARG SIGNING_EPOCH is passed at build time to bust the cache for this layer
+ARG SIGNING_EPOCH=0
 RUN --mount=type=secret,id=SIGNING_KEY \
     --mount=type=secret,id=SIGNING_CERT \
     set -euo pipefail && \
