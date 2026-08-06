@@ -289,18 +289,20 @@ jobs:
           [[ -f "$WORKDIR/EFI/BOOT/grubx64.efi"   ]] && sign_efi "$WORKDIR/EFI/BOOT/grubx64.efi"
 
           # ---------- 写回 /EFI ----------
-          sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
+          sudo xorriso -indev "$ISO_PATH" -outdev "$WORKDIR/iso_tmp.iso" \
               -map "$WORKDIR/EFI" /EFI \
               -boot_image any replay -commit 2>/dev/null
+          sudo mv -f "$WORKDIR/iso_tmp.iso" "$ISO_PATH"
 
           # ---------- 签名 /images/pxeboot/vmlinuz ----------
           sudo xorriso -osirrox on -indev "$ISO_PATH" \
               -extract /images/pxeboot/vmlinuz "$WORKDIR/vmlinuz" 2>/dev/null
           sudo chown "$(id -u):$(id -g)" "$WORKDIR/vmlinuz"
           sign_efi "$WORKDIR/vmlinuz"
-          sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
+          sudo xorriso -indev "$ISO_PATH" -outdev "$WORKDIR/iso_tmp.iso" \
               -map "$WORKDIR/vmlinuz" /images/pxeboot/vmlinuz \
               -boot_image any replay -commit 2>/dev/null
+          sudo mv -f "$WORKDIR/iso_tmp.iso" "$ISO_PATH"
 
           # ---------- 同步更新 /images/efiboot.img ----------
           sudo xorriso -osirrox on -indev "$ISO_PATH" \
@@ -326,9 +328,10 @@ jobs:
                       "$SHIM_SRC" ::/EFI/aceos/shimx64.efi   2>/dev/null || true
               fi
           fi
-          sudo xorriso -indev "$ISO_PATH" -outdev "$ISO_PATH" \
+          sudo xorriso -indev "$ISO_PATH" -outdev "$WORKDIR/iso_tmp.iso" \
               -map "$WORKDIR/efiboot.img" /images/efiboot.img \
               -boot_image any replay -commit 2>/dev/null
+          sudo mv -f "$WORKDIR/iso_tmp.iso" "$ISO_PATH"
 
           # ---------- 更新 MD5 ----------
           sudo implantisomd5 "$ISO_PATH"
