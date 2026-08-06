@@ -305,7 +305,29 @@ jobs:
             --secret "id=SIGNING_CERT,src=/tmp/signing.crt" \
             --tag raw-img .
 
-          rm -f /tmp/signing.key /tmp/signing.crt
+          rm -f /tmp/signing.key
+
+          # Verify out-of-tree module signatures
+          KVER=$(sudo podman run --rm raw-img ls /usr/lib/modules/ | head -1)
+          echo "Kernel version: $KVER"
+          NVIDIA_KO=$(sudo podman run --rm raw-img \
+              find /usr/lib/modules/${KVER} -name 'nvidia.ko*' -not -path '*/kernel/*' \
+              | head -1)
+          echo "nvidia.ko path: $NVIDIA_KO"
+          if [[ -n "$NVIDIA_KO" ]]; then
+              sudo podman create --name sig_check raw-img
+              EXT="${NVIDIA_KO##*.}"
+              sudo podman cp sig_check:${NVIDIA_KO} /tmp/nvidia_check.ko.${EXT}
+              sudo podman rm sig_check
+              [[ "$EXT" == "xz"]] && xz -d /tmp/nvidia_check.ko.xz
+              [[ "$EXT" == "gz"  ]] && gzip -d /tmp/nvidia_check.ko.gz
+              [[ "$EXT" == "zst" ]] && zstd -d /tmp/nvidia_check.ko.zst -o /tmp/nvidia_check.ko
+              modinfo /tmp/nvidia_check.ko | grep -E 'sig_id|signer|sig_key' || echo "WARNING: no signature info found"
+          else
+              echo "WARNING: nvidia.ko not found outside kernel/"
+          fi
+
+          rm -f /tmp/signing.crt
 
       # Reprocess raw-img using rechunker which will delete it
       - name: Run Rechunker

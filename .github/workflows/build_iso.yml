@@ -271,6 +271,8 @@ jobs:
           sudo xorriso -osirrox on -indev "$ISO_PATH" \
               -extract /EFI "$WORKDIR/EFI" 2>/dev/null
           sudo chown -R "$(id -u):$(id -g)" "$WORKDIR/EFI"
+          echo "==> EFI directory layout:"
+          find "$WORKDIR/EFI" -type f | sort
 
           # ---------- 替换 shim ----------
           SHIM_SRC="${{ github.workspace }}/installer/secure_boot/shimx64.efi"
@@ -305,33 +307,37 @@ jobs:
           sudo mv -f "$WORKDIR/iso_tmp.iso" "$ISO_PATH"
 
           # ---------- 同步更新 /images/efiboot.img ----------
-          sudo xorriso -osirrox on -indev "$ISO_PATH" \
-              -extract /images/efiboot.img "$WORKDIR/efiboot.img" 2>/dev/null
-          if command -v mcopy >/dev/null 2>&1; then
-              # grub
-              if [[ -f "$WORKDIR/EFI/aceos/grubx64.efi" ]]; then
-                  mcopy -D o -i "$WORKDIR/efiboot.img" \
-                      "$WORKDIR/EFI/aceos/grubx64.efi" ::/EFI/aceos/grubx64.efi 2>/dev/null || true
-                  mcopy -D o -i "$WORKDIR/efiboot.img" \
-                      "$WORKDIR/EFI/aceos/grubx64.efi" ::/EFI/BOOT/grubx64.efi  2>/dev/null || true
-              elif [[ -f "$WORKDIR/EFI/fedora/grubx64.efi" ]]; then
-                  mcopy -D o -i "$WORKDIR/efiboot.img" \
-                      "$WORKDIR/EFI/fedora/grubx64.efi" ::/EFI/fedora/grubx64.efi 2>/dev/null || true
-                  mcopy -D o -i "$WORKDIR/efiboot.img" \
-                      "$WORKDIR/EFI/fedora/grubx64.efi" ::/EFI/BOOT/grubx64.efi   2>/dev/null || true
-              fi
-              # shim
-              if [[ -f "$SHIM_SRC" ]]; then
-                  mcopy -D o -i "$WORKDIR/efiboot.img" \
-                      "$SHIM_SRC" ::/EFI/BOOT/BOOTX64.EFI   2>/dev/null || true
-                  mcopy -D o -i "$WORKDIR/efiboot.img" \
-                      "$SHIM_SRC" ::/EFI/aceos/shimx64.efi   2>/dev/null || true
-              fi
+          if sudo xorriso -osirrox on -indev "$ISO_PATH" \
+              -extract /images/efiboot.img "$WORKDIR/efiboot.img" 2>/dev/null; then
+            if command -v mcopy >/dev/null 2>&1; then
+                # grub
+                if [[ -f "$WORKDIR/EFI/aceos/grubx64.efi" ]]; then
+                    mcopy -D o -i "$WORKDIR/efiboot.img" \
+                        "$WORKDIR/EFI/aceos/grubx64.efi" ::/EFI/aceos/grubx64.efi 2>/dev/null || true
+                    mcopy -D o -i "$WORKDIR/efiboot.img" \
+                        "$WORKDIR/EFI/aceos/grubx64.efi" ::/EFI/BOOT/grubx64.efi  2>/dev/null || true
+                elif [[ -f "$WORKDIR/EFI/fedora/grubx64.efi" ]]; then
+                    mcopy -D o -i "$WORKDIR/efiboot.img" \
+                        "$WORKDIR/EFI/fedora/grubx64.efi" ::/EFI/fedora/grubx64.efi 2>/dev/null || true
+                    mcopy -D o -i "$WORKDIR/efiboot.img" \
+                        "$WORKDIR/EFI/fedora/grubx64.efi" ::/EFI/BOOT/grubx64.efi   2>/dev/null || true
+                fi
+                # shim
+                if [[ -f "$SHIM_SRC" ]]; then
+                    mcopy -D o -i "$WORKDIR/efiboot.img" \
+                        "$SHIM_SRC" ::/EFI/BOOT/BOOTX64.EFI   2>/dev/null || true
+                    mcopy -D o -i "$WORKDIR/efiboot.img" \
+                        "$SHIM_SRC" ::/EFI/aceos/shimx64.efi   2>/dev/null || true
+                fi
+            fi
+            sudo xorriso -indev "$ISO_PATH" -outdev "$WORKDIR/iso_tmp.iso" \
+                -map "$WORKDIR/efiboot.img" /images/efiboot.img \
+                -boot_image any replay -commit 2>/dev/null && \
+            sudo mv -f "$WORKDIR/iso_tmp.iso" "$ISO_PATH" || \
+            echo "WARNING: efiboot.img write-back failed, skipping"
+          else
+            echo "WARNING: efiboot.img not found in ISO, skipping"
           fi
-          sudo xorriso -indev "$ISO_PATH" -outdev "$WORKDIR/iso_tmp.iso" \
-              -map "$WORKDIR/efiboot.img" /images/efiboot.img \
-              -boot_image any replay -commit 2>/dev/null
-          sudo mv -f "$WORKDIR/iso_tmp.iso" "$ISO_PATH"
 
           # ---------- 更新 MD5 ----------
           sudo implantisomd5 "$ISO_PATH"
