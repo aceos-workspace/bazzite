@@ -310,8 +310,11 @@ jobs:
           # Verify out-of-tree module signatures
           KVER=$(sudo podman run --rm raw-img ls /usr/lib/modules/ | head -1)
           echo "Kernel version: $KVER"
+          echo "==> All .ko files outside kernel/:"
+          sudo podman run --rm raw-img \
+              find /usr/lib/modules/${KVER} -name'nvidia.ko*' | head -20
           NVIDIA_KO=$(sudo podman run --rm raw-img \
-              find /usr/lib/modules/${KVER} -name 'nvidia.ko*' -not -path '*/kernel/*' \
+              find /usr/lib/modules/${KVER} -name 'nvidia.ko*' \
               | head -1)
           echo "nvidia.ko path: $NVIDIA_KO"
           if [[ -n "$NVIDIA_KO" ]]; then
@@ -319,12 +322,13 @@ jobs:
               EXT="${NVIDIA_KO##*.}"
               sudo podman cp sig_check:${NVIDIA_KO} /tmp/nvidia_check.ko.${EXT}
               sudo podman rm sig_check
-              [[ "$EXT" == "xz"]] && xz -d /tmp/nvidia_check.ko.xz
+              [[ "$EXT" == "xz"  ]] && xz -d /tmp/nvidia_check.ko.xz
               [[ "$EXT" == "gz"  ]] && gzip -d /tmp/nvidia_check.ko.gz
               [[ "$EXT" == "zst" ]] && zstd -d /tmp/nvidia_check.ko.zst -o /tmp/nvidia_check.ko
+              [[ "$EXT" == "ko"  ]] && cp /tmp/nvidia_check.ko.ko /tmp/nvidia_check.ko 2>/dev/null || true
               modinfo /tmp/nvidia_check.ko | grep -E 'sig_id|signer|sig_key' || echo "WARNING: no signature info found"
           else
-              echo "WARNING: nvidia.ko not found outside kernel/"
+              echo "WARNING: nvidia.ko not found"
           fi
 
           rm -f /tmp/signing.crt
