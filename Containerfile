@@ -33,8 +33,8 @@ ARG ARCH="${ARCH:-x86_64}"
 
 ARG BASE_IMAGE="${BASE_IMAGE:-ghcr.io/ublue-os/${BASE_IMAGE_NAME}-main:${FEDORA_VERSION}}"
 ARG NVIDIA_BASE="${NVIDIA_BASE:-bazzite}"
-ARG KERNEL_REF="${KERNEL_REF:-ghcr.io/aceos-workspace/kernel-aceos:latest-f${FEDORA_VERSION}-${ARCH}}"
-ARG NVIDIA_REF="${NVIDIA_REF:-ghcr.io/aceos-workspace/akmods-aceos-nvidia-open:latest-f${FEDORA_VERSION}-${ARCH}}"
+ARG KERNEL_REF="${KERNEL_REF:-ghcr.io/aceos-workspace/bazzite-kernel:6.17.7-ba05-aceos-f${FEDORA_VERSION}-${ARCH}}"
+ARG NVIDIA_REF="${NVIDIA_REF:-ghcr.io/aceos-workspace/bak-nvidia-drivers:580.105.08-f${FEDORA_VERSION}-${ARCH}}"
 
 FROM ${KERNEL_REF} AS kernel
 FROM ${NVIDIA_REF} AS nvidia

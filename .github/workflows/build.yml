@@ -83,7 +83,7 @@ jobs:
         include:
           - fedora_version: 43
             # kernel_version: ${{ (github.ref_name == 'testing' || github.ref_name == 'unstable') && 'latest' || 'latest' }}
-            kernel_version: 6.17.7-ba05
+            kernel_version: 6.17.7-ba05-aceos
             base_image_flavor: main
             arch: x86_64
     steps:
@@ -170,7 +170,7 @@ jobs:
           fi
           echo "prev_ref=${IMAGEREF}" >> $GITHUB_OUTPUT
 
-          KERNEL_URI=ghcr.io/bazzite-org/kernel-bazzite:${{ matrix.kernel_version }}-f${{ matrix.fedora_version }}-${{ matrix.arch }}
+          KERNEL_URI=ghcr.io/aceos-workspace/bazzite-kernel:${{ matrix.kernel_version }}-f${{ matrix.fedora_version }}-${{ matrix.arch }}
           echo "kernel_ref=${KERNEL_URI}" >> $GITHUB_OUTPUT
           NVIDIA_URI=ghcr.io/bazzite-org/nvidia-drivers
           echo "nvidia_ref=${NVIDIA_URI}" >> $GITHUB_OUTPUT
