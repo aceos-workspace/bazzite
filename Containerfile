@@ -856,6 +856,11 @@ RUN --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
+    echo "--- dnf.conf content ---" && cat /etc/dnf/dnf.conf && echo "--- dnf.conf hex ---" && od -c /etc/dnf/dnf.conf | head -20 && echo "--- end ---" && \
+    if [ -f /etc/dnf/dnf.conf ]; then \
+        sed -i 's/\r$//' /etc/dnf/dnf.conf && \
+        printf '# see `man dnf.conf` for defaults and possible options\n\n[main]\ninstall_weak_deps=False\n' > /etc/dnf/dnf.conf ; \
+    fi && \
     dnf5 config-manager unsetopt skip_if_unavailable && \
     dnf5 -y remove \
         nvidia-gpu-firmware \
