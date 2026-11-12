@@ -150,29 +150,35 @@ jobs:
           #
           # Define push and pull registries
           #
-          PULL_REGISTRY=ghcr.io/ublue-os
+          # 上游官方镜像源（bazzite-org/*、ublue-os/*）已不可用（403 Forbidden），
+          # 全部改用自己的备份镜像，备份清单见仓库根目录 ghcr_backup.txt。
+          BACKUP_REGISTRY=ghcr.io/aceos-workspace
           # PUSH_REGISTRY=ghcr.io/${{ github.repository_owner }}
           OWNER_LOWER="${{ github.repository_owner }}"
           OWNER_LOWER="${OWNER_LOWER,,}"
           PUSH_REGISTRY="ghcr.io/${OWNER_LOWER}"
           echo "push_registry=${PUSH_REGISTRY}" >> $GITHUB_OUTPUT
-          echo "pull_registry=${PULL_REGISTRY}" >> $GITHUB_OUTPUT
+          echo "pull_registry=${BACKUP_REGISTRY}" >> $GITHUB_OUTPUT
           echo "output_image=${PUSH_REGISTRY}/${{ matrix.image }}" >> $GITHUB_OUTPUT
-          # Base image using regular tag as digest pinning failed
-          BASE_IMAGE="${PULL_REGISTRY}/$BASE_IMAGE_NAME-${{ matrix.base_image_flavor }}:${{ matrix.fedora_version }}"
+          # Base image：用备份 bak-kinoite-main:43
+          BASE_IMAGE="${BACKUP_REGISTRY}/bak-${BASE_IMAGE_NAME}-main:${{ matrix.fedora_version }}"
           echo "base_image=${BASE_IMAGE}" >> $GITHUB_OUTPUT
 
+          # 上游 bazzite-nvidia-open:stable 没有备份，无法做增量 rechunk，
+          # 一律置空（等价于每次 fresh-rechunk，只是多花一点时间，不影响产物）。
           if [ "${{ inputs['fresh-rechunk'] }}" == "true" ]; then
-
             IMAGEREF=""
           else
-            IMAGEREF="$PULL_REGISTRY/${{ matrix.image }}:stable"
+            # 若日后备份了 bazzite-nvidia-open，可改成 "${BACKUP_REGISTRY}/bak-${{ matrix.image }}:stable"
+            IMAGEREF=""
           fi
           echo "prev_ref=${IMAGEREF}" >> $GITHUB_OUTPUT
 
+          # 内核用 aceos 自己构建的（含 aceos 补丁 + 内置签名证书，备份的 bak-kernel-bazzite 不带这些，不能用）
           KERNEL_URI=ghcr.io/aceos-workspace/bazzite-kernel:${{ matrix.kernel_version }}-f${{ matrix.fedora_version }}-${{ matrix.arch }}
           echo "kernel_ref=${KERNEL_URI}" >> $GITHUB_OUTPUT
-          NVIDIA_URI=ghcr.io/bazzite-org/nvidia-drivers
+          # NVIDIA 用户态驱动：用备份 bak-nvidia-drivers
+          NVIDIA_URI=${BACKUP_REGISTRY}/bak-nvidia-drivers
           echo "nvidia_ref=${NVIDIA_URI}" >> $GITHUB_OUTPUT
 
           echo "Generated the following:"
@@ -337,7 +343,7 @@ jobs:
         id: rechunk
         uses: ublue-os/legacy-rechunk@a925083d9af7cb04b3e2a6e8c01bfa495f38b710 # v1.0.0
         with:
-          rechunk: "ghcr.io/ublue-os/legacy-rechunk:v1.0.0-x86_64"
+          rechunk: "ghcr.io/aceos-workspace/bak-legacy-rechunk:v1.0.0-x86_64"
           ref: "raw-img"
           prev-ref: "${{ steps.base.outputs.prev_ref }}"
           version: "${{ steps.labels.outputs.tag }}"

@@ -31,7 +31,7 @@ ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-kinoite}"
 ARG FEDORA_VERSION="${FEDORA_VERSION:-43}"
 ARG ARCH="${ARCH:-x86_64}"
 
-ARG BASE_IMAGE="${BASE_IMAGE:-ghcr.io/ublue-os/${BASE_IMAGE_NAME}-main:${FEDORA_VERSION}}"
+ARG BASE_IMAGE="${BASE_IMAGE:-ghcr.io/aceos-workspace/bak-${BASE_IMAGE_NAME}-main:${FEDORA_VERSION}}"
 ARG NVIDIA_BASE="${NVIDIA_BASE:-bazzite}"
 ARG KERNEL_REF="${KERNEL_REF:-ghcr.io/aceos-workspace/bazzite-kernel:6.17.7-ba05-aceos-f${FEDORA_VERSION}-${ARCH}}"
 ARG NVIDIA_REF="${NVIDIA_REF:-ghcr.io/aceos-workspace/bak-nvidia-drivers:580.105.08-f${FEDORA_VERSION}-${ARCH}}"
@@ -64,7 +64,7 @@ COPY firmware /
 
 
 # Copy Homebrew files from the brew image
-ARG BREW_IMAGE=ghcr.io/ublue-os/brew:latest@sha256:ca91068f51ce663d495ccfc829352d6621ec95f6c7db447ade55023b222f9762
+ARG BREW_IMAGE=ghcr.io/aceos-workspace/bak-brew:ca91068
 RUN --mount=type=bind,from=${BREW_IMAGE},source=/system_files,target=/tmp/brew_source \
     cp -a /tmp/brew_source/. / && \
     find /tmp/brew_source -type f -printf '/%P\0' | xargs -0 setfattr -n user.component -v "homebrew"
